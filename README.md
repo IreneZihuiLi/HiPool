@@ -7,4 +7,5 @@ and comparison with pyTorch implementation of other Hierarchical Methods (Mean P
 
 
 
-```CUDA_VISIBLE_DEVICES=1 python train_imdb.py --sentlen 50 --adj_method bigbird --level sent --graph_type gat --epoch 3```
+```CUDA_VISIBLE_DEVICES=1 python train_imdb.py --sentlen 50 --adj_method bigbird --level sent --graph_type gat --epoch 10```
+dataset: consumer_complaints

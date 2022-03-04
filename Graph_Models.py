@@ -215,39 +215,98 @@ class HiPool(torch.nn.Module):
         self.device = device
 
 
-        self.num_nodes1 = 10
+        self.num_nodes1 = 5
         self.num_nodes2 = ceil(self.num_nodes1/2)
 
+        'parameterize adj: not very helpful'
         # self.adj1 = torch.nn.Parameter(torch.zeros(size=(self.num_nodes1,self.num_nodes1))).to(self.device)
         # torch.nn.init.xavier_normal_(self.adj1.data, gain=1.414)
         # self.adj2 = torch.nn.Parameter(torch.zeros(size=(self.num_nodes2, self.num_nodes2))).to(self.device)
         # torch.nn.init.xavier_normal_(self.adj2.data, gain=1.414)
 
-        self.conv1 = DenseGCNConv(input_dim, hidden_dim)
-        self.conv2 = DenseGCNConv(hidden_dim, hidden_dim)
+        # self.conv1 = DenseGCNConv(input_dim, hidden_dim)
+        # self.conv2 = DenseGCNConv(hidden_dim, hidden_dim)
 
-        # self.conv1 = SpGraphAttentionLayer(input_dim,hidden_dim)
-        # self.conv2 = SpGraphAttentionLayer(hidden_dim, hidden_dim)
+        'GAT: not very helpful'
+        self.conv1 = SpGraphAttentionLayer(input_dim,hidden_dim)
+        self.conv2 = SpGraphAttentionLayer(hidden_dim, hidden_dim)
 
+        # output layer
         self.linear1 = torch.nn.Linear(hidden_dim, output_dim)
+
+
+        # cross-layer attention, l1
+        self.cross_attention_l1 = torch.nn.Parameter(torch.zeros(size=(input_dim, input_dim))).to(self.device)
+        torch.nn.init.xavier_normal_(self.cross_attention_l1.data, gain=1.414)
+    # def forward(self, x, edge_index):
+    #
+    #     'Hi-pool: GCN GAT 1-2 layers, normal hierarchiy'
+    #     newadj = edge_index[1].float()
+    #
+    #     portion1 = ceil(x.shape[0] / self.num_nodes1)
+    #     flat_s = torch.eye(self.num_nodes1)
+    #     flat_s = torch.repeat_interleave(flat_s, portion1, dim=0)[:x.shape[0], ].float().to(self.device)
+    #     # (13,5)
+    #
+    #
+    #     # first layer
+    #     x1 = torch.matmul(flat_s.t(),x) # (5,128)
+    #     self.adj1 = torch.matmul(torch.matmul(flat_s.t(),newadj), flat_s)
+    #
+    #     x = self.conv1(x1,self.adj1)
+    #
+    #
+    #     x = F.relu(x)
+    #     x = F.dropout(x, training=self.training)[0]
+    #
+    #     # second layer
+    #     portion2 = ceil(x.shape[0] / self.num_nodes2)
+    #     flat_s = torch.eye(self.num_nodes2)
+    #     flat_s = torch.repeat_interleave(flat_s, portion2, dim=0)[:x.shape[0], ].float().to(self.device)
+    #
+    #     # import pdb;pdb.set_trace()
+    #     x2 = torch.matmul(flat_s.t(), x)
+    #     self.adj2 = torch.matmul(torch.matmul(flat_s.t(), self.adj1), flat_s)
+    #     x = self.conv2(x2, self.adj2)
+    #
+    #
+    #     'return mean'
+    #     x = x.mean(dim=1)
+    #     x = F.relu(self.linear1(x))
+    #     return F.log_softmax(x, dim=1)
 
     def forward(self, x, edge_index):
 
-        'dot prod choose top num_nodes'
+        'hipool: add cross-layer attention'
         newadj = edge_index[1].float()
 
         portion1 = ceil(x.shape[0] / self.num_nodes1)
         flat_s = torch.eye(self.num_nodes1)
         flat_s = torch.repeat_interleave(flat_s, portion1, dim=0)[:x.shape[0], ].float().to(self.device)
-        # (13,5)
+
 
 
         # first layer
         x1 = torch.matmul(flat_s.t(),x) # (5,128)
         self.adj1 = torch.matmul(torch.matmul(flat_s.t(),newadj), flat_s)
+
+        'testing cross-layer attention'
+        # generate inverse adj for cross-layer attention
+        reverse_s = torch.ones_like(flat_s) - flat_s
+        scores = torch.matmul(torch.matmul(x1, self.cross_attention_l1),x.t())
+        # mask own cluster and do cross-cluster
+        scores = scores * reverse_s.t()
+        alpha = F.softmax(scores, dim=1)
+        # compute \alpha * x
+        x1 = torch.matmul(alpha,x) + x1
+        'cross-layer ends'
+
+        # import pdb;
+        # pdb.set_trace()
+
         x = self.conv1(x1,self.adj1)
 
-        # import pdb;pdb.set_trace()
+
         x = F.relu(x)
         x = F.dropout(x, training=self.training)[0]
 

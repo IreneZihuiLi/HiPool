@@ -1,11 +1,12 @@
 import torch
-import pandas as pd
+import random
 import numpy as np
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.data.sampler import SubsetRandomSampler
 import transformers
 from transformers import RobertaTokenizer, BertTokenizer, RobertaModel, BertModel, AdamW# get_linear_schedule_with_warmup
+import torch.optim as optim
 from transformers import get_linear_schedule_with_warmup
 
 import os
@@ -46,6 +47,7 @@ parser.add_argument('--hid_dim', type=int, default=32, help='Hidden dim for grap
 parser.add_argument('--sentlen', type=int, default=20, help='Sentence length.')
 parser.add_argument('--epoch', type=int, default=10, help='Number of epoch.')
 parser.add_argument('--batch_size', type=int, default=8, help='Batch Size.')
+parser.add_argument('--lr', type=float, default=2e-5, help='Learning Rate.')
 parser.add_argument('--graph_type', type=str, default='graphsage', help='Graph encoder type: gcn, gat, graphsage, randomwalk,linear')
 parser.add_argument('--adj_method', type=str, default='path_graph',
                     help='choose from [fc,dense_gnm_random_graph,erdos_renyi_graph,binomial_graph,path_graph,complete]')
@@ -64,7 +66,9 @@ TRAIN_BATCH_SIZE=args.batch_size
 EPOCH=args.epoch
 validation_split = .2
 shuffle_dataset = True
-random_seed= 42
+# random_seed= 42
+random_seed= 1024
+
 MAX_LEN = 1024
 GROUP_NUM = 10
 'group_num 50, simple model 82%'
@@ -74,7 +78,7 @@ GROUP_NUM = 10
 CHUNK_LEN=args.sentlen # sentence-level
 OVERLAP_LEN = int(args.sentlen/2)
 
-lr=2e-5#1e-3
+# lr=2e-5#1e-3
 
 print('Loading BERT tokenizer...')
 bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
@@ -100,19 +104,35 @@ dataset=DatasetSplit(
     # file_location='./IMDB',
     file_location=args.dataset)
 
+
+
 #train_size = int(0.8 * len(dataset))
 #test_size = len(dataset) - train_size
 #train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
+
 # Creating data indices for training and validation splits:
-dataset_size = len(dataset)
-indices = list(range(dataset_size))
-split = int(np.floor(validation_split * dataset_size))
-if shuffle_dataset :
+# if shuffle_dataset :
+if dataset.train_size == 0 :
+    dataset_size = len(dataset)
+    indices = list(range(dataset_size))
+    split = int(np.floor(validation_split * dataset_size))
     np.random.seed(random_seed)
     np.random.shuffle(indices)
-train_indices, val_indices = indices[split:], indices[:split]
+    train_indices, val_indices = indices[split:], indices[:split]
+else:
+    train_indices = [_ for _ in range(0,dataset.train_size)]
 
+    'IMDB too large..'
+    val_indices = [_ for _ in range(0,dataset.val_size)]
+    val_indices = val_indices[:int(dataset.val_size * 0.05)] + val_indices[-int(dataset.val_size * 0.05):]
+
+#
+# import pdb;
+# pdb.set_trace()
+
+
+# train_indices is a list of int
 # Creating PT data samplers and loaders:
 train_sampler = SubsetRandomSampler(train_indices)
 valid_sampler = SubsetRandomSampler(val_indices)
@@ -122,7 +142,6 @@ train_data_loader=DataLoader(
     dataset,
     batch_size=TRAIN_BATCH_SIZE,
     sampler=train_sampler,collate_fn=my_collate1)
-
 
 
 valid_data_loader=DataLoader(
@@ -152,7 +171,9 @@ if args.level == 'sent':
 else:
     model=Hi_Bert_Classification_Model_GCN_tokenlevel(num_class=dataset.num_class,device=device,adj_method=args.adj_method).to(device)
 
-optimizer=AdamW(model.parameters(), lr=lr)
+# optimizer=AdamW(model.parameters(), lr=args.lr)
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
+# optimizer = optim.RMSprop(model.parameters(), lr=args.lr)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                         num_warmup_steps = 0,
                                         num_training_steps = num_training_steps)
@@ -168,19 +189,37 @@ for epoch in range(EPOCH):
     epoch_loss=np.mean(batches_losses_tmp)
     print ("\n ******** Running time this step..",time.time()-t0)
     avg_running_time.append(time.time()-t0)
-    print(f"\n*** avg_loss : {epoch_loss:.2f}, time : ~{(time.time()-t0)//60} min ({time.time()-t0:.2f} sec) ***\n")
+    print(f"\n*** avg_loss : {epoch_loss:.4f}, time : ~{(time.time()-t0)//60} min ({time.time()-t0:.2f} sec) ***\n")
     t1=time.time()
     output, target, val_losses_tmp=eval_loop_fun1(valid_data_loader, model, device)
-    print(f"==> evaluation : avg_loss = {np.mean(val_losses_tmp):.2f}, time : {time.time()-t1:.2f} sec\n")
-    tmp_evaluate=evaluate(target.reshape(-1), output)
+    print(f"==> evaluation : avg_loss = {np.mean(val_losses_tmp):.4f}, time : {time.time()-t1:.2f} sec\n")
+    tmp_evaluate=evaluate(target.reshape(-1), output,epoch = epoch)
     print(f"=====>\t{tmp_evaluate}")
     val_acc.append(tmp_evaluate['accuracy'])
     val_losses.append(val_losses_tmp)
     batches_losses.append(batches_losses_tmp)
-    print("\t§§ model has been saved §§")
+
 
 print("\n\n$$$$ average running time per epoch (sec)..", sum(avg_running_time)/len(avg_running_time))
-    # torch.save(model, "models/"+model_dir+"/model_epoch{epoch+1}.pt")
+torch.save(model, "models/"+model_dir+"/model_"+str(args.sentlen)+"_"+args.graph_type+"_"+str(args.epoch)+".pt")
+print("\t§§ model has been saved §§")
+
+
+# evaluate on the full test dataset
+if dataset.train_size !=0 :
+    val_indices = [_ for _ in range(0, dataset.val_size)]
+    # val_indices = [_ for _ in range(0, 500)]
+    valid_sampler = SubsetRandomSampler(val_indices)
+    valid_data_loader = DataLoader(
+        dataset,
+        batch_size=TRAIN_BATCH_SIZE,
+        sampler=valid_sampler, collate_fn=my_collate1)
+
+    t1 = time.time()
+    output, target, val_losses_tmp = eval_loop_fun1(valid_data_loader, model, device)
+    print(f"==> Final evaluation on the full dataset : avg_loss = {np.mean(val_losses_tmp):.2f}, time : {time.time() - t1:.2f} sec\n")
+    tmp_evaluate = evaluate(target.reshape(-1), output, final=True)
+    print(f"=====> Final result: \t{tmp_evaluate}")
 
 '''
 50 and 50: 0.82644

@@ -13,6 +13,8 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 import re
 import math
+from datasets import load_dataset
+
 from sklearn.model_selection import train_test_split
 from transformers import BertTokenizer
 from transformers import BertForSequenceClassification, AdamW, BertConfig
@@ -64,8 +66,10 @@ class DatasetSplit(Dataset):
         self.approach = approach
         self.min_len = min_len
         self.max_size_dataset = max_size_dataset
+        self.train_size = 0
+        self.val_size = 0
         self.data, self.label = self.process_data(file_location,)
-        self.num_class = 10
+        # self.num_class = 10
 
 
 
@@ -116,6 +120,27 @@ class DatasetSplit(Dataset):
 
 
 
+        elif file_location.startswith('imdb'):
+
+            dataset = load_dataset('imdb')
+            train_raw = dataset['train']
+
+            # load as dataframe
+            train_raw = pd.DataFrame(list(zip(train_raw['text'], train_raw['label'])), columns=['text', 'label'])
+
+
+            # we will have train_size and val_size
+            self.train_size = len(train_raw)
+            val_raw =  dataset['test']
+            self.val_size = len(val_raw)
+
+            # combine for processing
+            val_raw = pd.DataFrame(list(zip(val_raw['text'], val_raw['label'])), columns=['text', 'label'])
+            train_raw = train_raw.append(val_raw, ignore_index=True)
+
+            # import pdb;pdb.set_trace()
+
+
         LE = LabelEncoder()
         train_raw['label'] = LE.fit_transform(train_raw['label'])
         train = train_raw.copy()
@@ -125,6 +150,10 @@ class DatasetSplit(Dataset):
         train['text'] = train.text.apply(self.clean_txt)
         'return string list in an object ndarrary, ad an int arrary for labels'
         self.num_class = len(set(train['label'].values))
+
+
+
+
         return train['text'].values, train['label'].values
 
     def clean_txt(self, text):

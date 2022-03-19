@@ -11,9 +11,10 @@ Tested on python 3.8.8.
 
 
 ## Running
-```CUDA_VISIBLE_DEVICES=1 python train_imdb.py --sentlen 50 --adj_method bigbird --level sent --graph_type gat --epoch 10```
+```CUDA_VISIBLE_DEVICES=6 python train_imdb.py --sentlen 100 --adj_method kk --level sent --graph_type gcn --epoch 10 --dataset imdb --lr 5e-7```
 
-default dataset: consumer_complaints
+
+default dataset: imdb
 
 ## Main Scripts
 `train_imdb.py`: main function.

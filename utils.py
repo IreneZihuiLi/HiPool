@@ -11,6 +11,7 @@ import math
 import torch
 import networkx as nx
 import numpy as np
+from sklearn.metrics import f1_score,accuracy_score
 
 from sklearn.preprocessing import LabelEncoder
 import re
@@ -50,16 +51,40 @@ def loss_fun(outputs, targets):
     # return nn.BCEWithLogitsLoss()(outputs, targets)
 
 
-def evaluate(target, predicted):
-    true_label_mask = [1 if (np.argmax(x)-target[i]) ==
-                       0 else 0 for i, x in enumerate(predicted)]
-    nb_prediction = len(true_label_mask)
-    true_prediction = sum(true_label_mask)
+def evaluate(truth, predicted, final=False, epoch = 0):
+    'what is this?'
+    # true_label_mask = [1 if (np.argmax(x) - truth[i]) == 0 else 0 for i, x in enumerate(predicted)]
+
+    predicted = np.argmax(predicted, 1)
+    nb_prediction = len(predicted)
+    true_prediction = sum(predicted)
     false_prediction = nb_prediction-true_prediction
     accuracy = true_prediction/nb_prediction
+
+    mi_f1 = f1_score(predicted, truth, average='micro')
+    ma_f1 = f1_score(predicted, truth, average='macro')
+    acc_score = accuracy_score(predicted,truth)
+    # import pdb;pdb.set_trace()
+
+    file_name = 'tmp/res.'
+    'write for analysis'
+    if final:
+        file_name += 'final'
+    else:
+        file_name += str(epoch)
+
+    with open(file_name,'w') as f:
+        f.write("Pred\tTruth\n")
+        for pr,tr in zip(predicted, truth.tolist()):
+            f.write(str(pr)+'\t'+str(tr)+'\n')
+    print('Finished writing in tmp/res.txt..',len(predicted))
+
     return{
         "accuracy": accuracy,
-        "nb exemple": len(target),
+        "accuracy_score": acc_score,
+        "f1-micro": mi_f1,
+        "f1-macro": ma_f1,
+        "nb exemple": len(truth),
         "true_prediction": true_prediction,
         "false_prediction": false_prediction,
     }

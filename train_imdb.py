@@ -40,7 +40,9 @@ else:
 import argparse
 
 parser = argparse.ArgumentParser(description='Parameters')
-parser.add_argument('--dataset', type=str, default='complaints',
+# parser.add_argument('--dataset', type=str, default='complaints',
+#                     help='choose from [complaints, imdb]')
+parser.add_argument('--dataset', type=str, default='imdb',
                     help='choose from [complaints, imdb]')
 parser.add_argument('--lstm_dim', type=int, default=128, help='Hidden dim for entering graph.')
 parser.add_argument('--hid_dim', type=int, default=32, help='Hidden dim for graph models.')

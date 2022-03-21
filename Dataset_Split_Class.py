@@ -69,7 +69,7 @@ class DatasetSplit(Dataset):
         self.train_size = 0
         self.val_size = 0
         self.data, self.label = self.process_data(file_location,)
-        # self.num_class = 10
+
 
 
 

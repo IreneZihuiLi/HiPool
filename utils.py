@@ -51,22 +51,17 @@ def loss_fun(outputs, targets):
     # return nn.BCEWithLogitsLoss()(outputs, targets)
 
 
-def evaluate(truth, predicted, final=False, epoch = 0):
-    'what is this?'
-    # true_label_mask = [1 if (np.argmax(x) - truth[i]) == 0 else 0 for i, x in enumerate(predicted)]
+def evaluate(truth, predicted, final=False, epoch = 0, path = 'tmp/'):
 
+    # import pdb;pdb.set_trace()
     predicted = np.argmax(predicted, 1)
-    nb_prediction = len(predicted)
-    true_prediction = sum(predicted)
-    false_prediction = nb_prediction-true_prediction
-    accuracy = true_prediction/nb_prediction
 
     mi_f1 = f1_score(predicted, truth, average='micro')
     ma_f1 = f1_score(predicted, truth, average='macro')
     acc_score = accuracy_score(predicted,truth)
     # import pdb;pdb.set_trace()
 
-    file_name = 'tmp/res.'
+    file_name = path +'/res.'
     'write for analysis'
     if final:
         file_name += 'final'
@@ -80,13 +75,10 @@ def evaluate(truth, predicted, final=False, epoch = 0):
     print('Finished writing in tmp/res.txt..',len(predicted))
 
     return{
-        "accuracy": accuracy,
         "accuracy_score": acc_score,
         "f1-micro": mi_f1,
         "f1-macro": ma_f1,
         "nb exemple": len(truth),
-        "true_prediction": true_prediction,
-        "false_prediction": false_prediction,
     }
 
 

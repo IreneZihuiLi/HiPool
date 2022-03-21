@@ -40,9 +40,7 @@ else:
 import argparse
 
 parser = argparse.ArgumentParser(description='Parameters')
-# parser.add_argument('--dataset', type=str, default='complaints',
-#                     help='choose from [complaints, imdb]')
-parser.add_argument('--dataset', type=str, default='imdb',
+parser.add_argument('--dataset', type=str, default='complaints',
                     help='choose from [complaints, imdb]')
 parser.add_argument('--lstm_dim', type=int, default=128, help='Hidden dim for entering graph.')
 parser.add_argument('--hid_dim', type=int, default=32, help='Hidden dim for graph models.')
@@ -63,6 +61,12 @@ model_dir = args.dataset
 if not os.path.exists("models/"+model_dir):
     os.mkdir("models/"+model_dir)
     print ('Making model dir...')
+# set result path
+res_path = "models/"+model_dir+"/model_"+str(args.sentlen)+"_"+args.graph_type+'_'+args.adj_method
+if not os.path.exists(res_path):
+    os.mkdir(res_path)
+    print ('Making res dir...')
+
 
 TRAIN_BATCH_SIZE=args.batch_size
 EPOCH=args.epoch
@@ -126,8 +130,10 @@ else:
     train_indices = [_ for _ in range(0,dataset.train_size)]
 
     'IMDB too large..'
-    val_indices = [_ for _ in range(0,dataset.val_size)]
+    val_indices = [_ for _ in range(dataset.train_size,dataset.train_size+dataset.val_size)]
+    # val_indices = [_ for _ in range(0,dataset.val_size)]
     val_indices = val_indices[:int(dataset.val_size * 0.05)] + val_indices[-int(dataset.val_size * 0.05):]
+
 
 #
 # import pdb;
@@ -195,22 +201,21 @@ for epoch in range(EPOCH):
     t1=time.time()
     output, target, val_losses_tmp=eval_loop_fun1(valid_data_loader, model, device)
     print(f"==> evaluation : avg_loss = {np.mean(val_losses_tmp):.4f}, time : {time.time()-t1:.2f} sec\n")
-    tmp_evaluate=evaluate(target.reshape(-1), output,epoch = epoch)
+    tmp_evaluate=evaluate(target.reshape(-1), output,epoch = epoch, path=res_path)
     print(f"=====>\t{tmp_evaluate}")
-    val_acc.append(tmp_evaluate['accuracy'])
     val_losses.append(val_losses_tmp)
     batches_losses.append(batches_losses_tmp)
 
 
 print("\n\n$$$$ average running time per epoch (sec)..", sum(avg_running_time)/len(avg_running_time))
-torch.save(model, "models/"+model_dir+"/model_"+str(args.sentlen)+"_"+args.graph_type+"_"+str(args.epoch)+".pt")
+torch.save(model, "models/"+model_dir+"/model_"+str(args.sentlen)+"_"+args.graph_type+'_'+args.adj_method+"_"+str(args.epoch)+".pt")
 print("\t§§ model has been saved §§")
 
 
 # evaluate on the full test dataset
 if dataset.train_size !=0 :
-    val_indices = [_ for _ in range(0, dataset.val_size)]
-    # val_indices = [_ for _ in range(0, 500)]
+    # val_indices = [_ for _ in range(0, dataset.val_size)]
+    val_indices = [_ for _ in range(dataset.train_size, dataset.train_size+dataset.val_size)]
     valid_sampler = SubsetRandomSampler(val_indices)
     valid_data_loader = DataLoader(
         dataset,
@@ -220,7 +225,7 @@ if dataset.train_size !=0 :
     t1 = time.time()
     output, target, val_losses_tmp = eval_loop_fun1(valid_data_loader, model, device)
     print(f"==> Final evaluation on the full dataset : avg_loss = {np.mean(val_losses_tmp):.2f}, time : {time.time() - t1:.2f} sec\n")
-    tmp_evaluate = evaluate(target.reshape(-1), output, final=True)
+    tmp_evaluate = evaluate(target.reshape(-1), output, final=True, path=res_path)
     print(f"=====> Final result: \t{tmp_evaluate}")
 
 '''

@@ -1,4 +1,8 @@
 my_datasets/*
+!my_datasets/.gitkeep 
 pretrained_models/*
+!pretrained_models/.gitkeep 
 runs/*
+!runs/.gitkeep 
 pretraining_model_ckpt/*
+!pretraining_model_ckpt/.gitkeep 

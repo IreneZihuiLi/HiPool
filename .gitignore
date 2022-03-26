@@ -1,4 +1,4 @@
-my_datasets/
-pretrained_models/
-runs/
-pretraining_model_ckpt/
+my_datasets/*
+pretrained_models/*
+runs/*
+pretraining_model_ckpt/*

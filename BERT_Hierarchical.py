@@ -168,6 +168,7 @@ class BERT_Hierarchical_BERT_Model(nn.Module):
         self.pooling_method = pooling_method
         self.device = device
 
+        'change to longformer'
         self.bert_path = 'bert-base-uncased'
         self.bert = transformers.BertModel.from_pretrained(self.bert_path)
 
@@ -209,7 +210,3 @@ class BERT_Hierarchical_BERT_Model(nn.Module):
 
 
 
-# layer num, head num
-# 1,1, 0.823220536756126
-# 2,1, 0.8165110851808635
-# 1,8,  0.8211785297549592

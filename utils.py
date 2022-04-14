@@ -162,6 +162,10 @@ def get_graph_features(graph):
         number_connected_components = nx.number_connected_components(graph) # int Returns the number of connected components.
         # avg_shortest_path_len = nx.average_shortest_path_length(graph) # float Return the average shortest path length; The average shortest path length is the sum of path lengths d(u,v) between all pairs of nodes (assuming the length is zero if v is not reachable from v) normalized by n*(n-1) where n is the number of nodes in G.
         # diameter = nx.distance_measures.diameter(graph) # int The diameter is the maximum eccentricity.
+
+        'for debug'
+        with open('tmp/node_number.txt','a') as f:
+            f.write(str(node_number)+'\n')
         return {'node_number': node_number, 'edge_number': edge_number, 'centrality': centrality, 'degrees': degrees,
                 'density': density, 'clustring_coef': clustring_coef, 'closeness_centrality': closeness_centrality,
                 'number_triangles': number_triangles, 'number_clique': number_clique,
@@ -216,7 +220,10 @@ def train_loop_fun1(data_loader, model, optimizer, device, scheduler=None):
         # token_type_ids = token_type_ids.to(device, dtype=torch.long)
         # targets = targets.to(device, dtype=torch.long)
 
+
         target_labels = torch.stack([x[0] for x in targets]).long().to(device)
+
+
 
         optimizer.zero_grad()
 

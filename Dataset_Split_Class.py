@@ -14,20 +14,7 @@ from sklearn.preprocessing import LabelEncoder
 import re
 import math
 from datasets import load_dataset
-
-from sklearn.model_selection import train_test_split
-from transformers import BertTokenizer
-from transformers import BertForSequenceClassification, AdamW, BertConfig
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
-from torch.utils.data.sampler import SubsetRandomSampler
-import transformers
-# get_linear_schedule_with_warmup
-from transformers import RobertaTokenizer, BertTokenizer, RobertaModel, BertModel, AdamW
-from transformers import get_linear_schedule_with_warmup
-import time
 
 
 class DatasetSplit(Dataset):
@@ -58,7 +45,7 @@ class DatasetSplit(Dataset):
     label: array of shape (n_keept_sample,)
         data labels
     """
-    def __init__(self, tokenizer, max_len, chunk_len=200, overlap_len=50, approach="all", max_size_dataset=None, file_location="./us-consumer-finance-complaints/consumer_complaints.csv", min_len=249):
+    def __init__(self, tokenizer, max_len, chunk_len=200, overlap_len=50, max_node=10, approach="all", max_size_dataset=None, file_location="./us-consumer-finance-complaints/consumer_complaints.csv", min_len=249):
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.overlap_len = overlap_len
@@ -68,6 +55,7 @@ class DatasetSplit(Dataset):
         self.max_size_dataset = max_size_dataset
         self.train_size = 0
         self.val_size = 0
+        self.max_node = max_node
         self.data, self.label = self.process_data(file_location,)
 
 
@@ -128,7 +116,6 @@ class DatasetSplit(Dataset):
             # load as dataframe
             train_raw = pd.DataFrame(list(zip(train_raw['text'], train_raw['label'])), columns=['text', 'label'])
 
-
             # we will have train_size and val_size
             self.train_size = len(train_raw)
             val_raw =  dataset['test']
@@ -138,7 +125,22 @@ class DatasetSplit(Dataset):
             val_raw = pd.DataFrame(list(zip(val_raw['text'], val_raw['label'])), columns=['text', 'label'])
             train_raw = train_raw.append(val_raw, ignore_index=True)
 
-            # import pdb;pdb.set_trace()
+        elif file_location.startswith('hyp'):
+            df = pd.read_csv("./hyperpartisan/hpy-train.tsv",sep='\t')
+            train_raw = df[df.text.notnull()]
+            train_raw = train_raw[['text', 'label']]
+            self.train_size = len(train_raw)
+
+            df = pd.read_csv("./hyperpartisan/hpy-test.tsv", sep='\t')
+            test_raw = df[df.text.notnull()]
+            test_raw = test_raw[['text', 'label']]
+            self.val_size = len(test_raw)
+
+            train_raw = train_raw.append(test_raw,ignore_index=True)
+
+            # train_raw.reset_index(inplace=True, drop=True)
+
+
 
 
         LE = LabelEncoder()
@@ -196,16 +198,9 @@ class DatasetSplit(Dataset):
         previous_token_type_ids = data_tokenize["token_type_ids"].reshape(-1)
         remain = data_tokenize.get("overflowing_tokens")
         targets = torch.tensor(targets, dtype=torch.int)
-
-        # input_ids_list.append(previous_input_ids)
-        # attention_mask_list.append(previous_attention_mask)
-        # token_type_ids_list.append(previous_token_type_ids)
-        # targets_list.append(targets)
-
-
+        # import pdb;pdb.set_trace()
 
         'sementation new: Dec, 2021'
-
 
         start_token = torch.tensor([101], dtype=torch.long)
         end_token = torch.tensor([102], dtype=torch.long)
@@ -216,9 +211,32 @@ class DatasetSplit(Dataset):
 
         mask_list = torch.ones(self.chunk_len, dtype=torch.long)
         type_list = torch.zeros(self.chunk_len, dtype=torch.long)
+
+        end_id = 0
         for current in range(number_chunks-1):
             input_ids = previous_input_ids[current*stride:current*stride+self.chunk_len-2]
             input_ids = torch.cat((start_token, input_ids, end_token))
+            input_ids_list.append(input_ids)
+
+            attention_mask_list.append(mask_list)
+            token_type_ids_list.append(type_list)
+            targets_list.append(targets)
+
+            end_id = current*stride+self.chunk_len-2
+
+        # pad the last chunk
+        if end_id + 1 < len(previous_input_ids):
+            input_ids = previous_input_ids[end_id:]
+
+            # filter out head and tail
+            if input_ids[0] == start_token:
+                input_ids = input_ids[1:-1]
+
+            padded_input_ids = torch.zeros((self.chunk_len-2))
+            padded_input_ids[:input_ids.shape[0]] = input_ids
+
+
+            input_ids = torch.cat((start_token, padded_input_ids, end_token))
             input_ids_list.append(input_ids)
 
             attention_mask_list.append(mask_list)
@@ -234,6 +252,14 @@ class DatasetSplit(Dataset):
             token_type_ids_list.append(type_list)
             targets_list.append(targets)
 
+
+        'to be optimized: we can not process a large max number of sentences'
+        if len(input_ids_list) > self.max_node:
+            input_ids_list = input_ids_list[:self.max_node]
+            attention_mask_list = attention_mask_list[:self.max_node]
+            token_type_ids_list = token_type_ids_list[:self.max_node]
+
+
         return({
             'ids': input_ids_list,  # torch.tensor(ids, dtype=torch.long),
             # torch.tensor(mask, dtype=torch.long),
@@ -247,7 +273,7 @@ class DatasetSplit(Dataset):
     def __getitem__(self, idx):
         """  Return a single tokenized sample at a given positon [idx] from data"""
 
-        consumer_complaint = str(self.data[idx])
+        data_text = str(self.data[idx])
         targets = int(self.label[idx])
         # data = self.tokenizer.encode_plus(
         #         #     consumer_complaint,
@@ -260,7 +286,7 @@ class DatasetSplit(Dataset):
         #         #     return_tensors='pt')
 
         data = self.tokenizer.encode_plus(
-            consumer_complaint,
+            data_text,
             max_length=self.max_len,
             pad_to_max_length=False,
             add_special_tokens=True,
@@ -268,6 +294,7 @@ class DatasetSplit(Dataset):
             return_token_type_ids=True,
             return_overflowing_tokens=True,
             return_tensors='pt')
+
 
 
         long_token = self.long_terms_tokenizer(data, targets)

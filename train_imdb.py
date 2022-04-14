@@ -46,12 +46,18 @@ parser.add_argument('--lstm_dim', type=int, default=128, help='Hidden dim for en
 parser.add_argument('--hid_dim', type=int, default=32, help='Hidden dim for graph models.')
 parser.add_argument('--sentlen', type=int, default=20, help='Sentence length.')
 parser.add_argument('--epoch', type=int, default=10, help='Number of epoch.')
+parser.add_argument('--max_node', type=int, default=10, help='Number of sentence in an input document.')
 parser.add_argument('--batch_size', type=int, default=8, help='Batch Size.')
 parser.add_argument('--lr', type=float, default=2e-5, help='Learning Rate.')
 parser.add_argument('--graph_type', type=str, default='graphsage', help='Graph encoder type: gcn, gat, graphsage, randomwalk,linear')
 parser.add_argument('--adj_method', type=str, default='path_graph',
                     help='choose from [fc,dense_gnm_random_graph,erdos_renyi_graph,binomial_graph,path_graph,complete]')
 parser.add_argument('--level', type=str, default='sent', help='level: sent or tok')
+parser.add_argument('--tf_base', type=str, default='bert', help='Transformer base model: bert, roberta')
+parser.add_argument('--apply_conv',action='store_true', help='If apply a conv1d layer when aggregating tokens to sentences after '
+                                                             'BERT')
+parser.add_argument('--overlap',action='store_true', help='If apply the overlap BERT embedding to add more bridges.')
+
 
 # parser.add_argument('--model_dir', type=str, default='complaints',
 #                     help='the dir for saving models')
@@ -75,7 +81,8 @@ shuffle_dataset = True
 # random_seed= 42
 random_seed= 1024
 
-MAX_LEN = 1024
+MAX_LEN = 100000
+# MAX_LEN = 1024
 GROUP_NUM = 10
 'group_num 50, simple model 82%'
 
@@ -83,22 +90,18 @@ GROUP_NUM = 10
 # CHUNK_LEN=200
 CHUNK_LEN=args.sentlen # sentence-level
 OVERLAP_LEN = int(args.sentlen/2)
+MAX_NODE = args.max_node
 
 # lr=2e-5#1e-3
 
 print('Loading BERT tokenizer...')
-bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+if args.tf_base.startswith('roberta'):
+    bert_tokenizer = RobertaTokenizer.from_pretrained('roberta-base', do_lower_case=True)
+else:
+    bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
 
 
 print ('Loading data...',args.dataset)
-# dataset=DatasetSent(
-#     tokenizer=bert_tokenizer,
-#     max_len=MAX_LEN,
-#     chunk_len=CHUNK_LEN,
-#     sentence_group_num=GROUP_NUM,
-#     #max_size_dataset=MAX_SIZE_DATASET,
-#     # file_location='./IMDB',
-#     file_location=args.dataset)
 
 
 dataset=DatasetSplit(
@@ -106,6 +109,7 @@ dataset=DatasetSplit(
     max_len=MAX_LEN,
     chunk_len=CHUNK_LEN,
     overlap_len=OVERLAP_LEN,
+    max_node=MAX_NODE,
     #max_size_dataset=MAX_SIZE_DATASET,
     # file_location='./IMDB',
     file_location=args.dataset)

@@ -290,10 +290,13 @@ class HiPool(torch.nn.Module):
     #     x = F.relu(self.linear1(x))
     #     return F.log_softmax(x, dim=1)
 
-    def forward_cross_best(self, x, edge_index):
+    def forward_best(self, x, edge_index):
+        # forward_cross_best: april 7
 
         'hipool: add sent-token cross-attention (cross-layer) attention: 2 layers'
         newadj = edge_index[1].float()
+
+
 
         portion1 = ceil(x.shape[0] / self.num_nodes1)
         flat_s = torch.eye(self.num_nodes1)
@@ -332,17 +335,16 @@ class HiPool(torch.nn.Module):
         x2 = torch.matmul(flat_s.t(), x)
         self.adj2 = torch.matmul(torch.matmul(flat_s.t(), self.adj1), flat_s)
 
-        # import pdb;
-        # pdb.set_trace()
+
         'testing cross-layer attention for 2nd layer'
         # generate inverse adj for cross-layer attention
-        reverse_s = torch.ones_like(flat_s) - flat_s
-        scores = torch.matmul(torch.matmul(x2, self.cross_attention_l2), x.t())
-        # mask own cluster and do cross-cluster
-        scores = scores * reverse_s.t()
-        alpha = F.softmax(scores, dim=1)
-        # compute \alpha * x
-        x2 = torch.matmul(alpha, x) + x2
+        # reverse_s = torch.ones_like(flat_s) - flat_s
+        # scores = torch.matmul(torch.matmul(x2, self.cross_attention_l2), x.t())
+        # # mask own cluster and do cross-cluster
+        # scores = scores * reverse_s.t()
+        # alpha = F.softmax(scores, dim=1)
+        # # compute \alpha * x
+        # x2 = torch.matmul(alpha, x) + x2
         'cross-layer for 2nd layer ends'
 
         x = self.conv2(x2, self.adj2)
@@ -409,75 +411,75 @@ class HiPool(torch.nn.Module):
     #     return F.log_softmax(x, dim=1)
 
 
-    def forward_reverse(self, x, edge_index):
+    # def forward_reverse(self, x, edge_index):
+    #
+    #     'hipool: add sent-token cross-attention (cross-layer) attention: 1 layer, the best setting so far'
+    #     newadj = edge_index[1].float()
+    #
+    #     portion1 = ceil(x.shape[0] / self.num_nodes1)
+    #     flat_s = torch.eye(self.num_nodes1)
+    #     flat_s = torch.repeat_interleave(flat_s, portion1, dim=0)[:x.shape[0], ].float().to(self.device)
+    #
+    #
+    #     # first layer
+    #     input_x = x
+    #     x1 = torch.matmul(flat_s.t(),x) # (5,128)
+    #     self.adj1 = torch.matmul(torch.matmul(flat_s.t(),newadj), flat_s)
+    #
+    #     'testing cross-layer attention'
+    #     # generate inverse adj for cross-layer attention
+    #     reverse_s = torch.ones_like(flat_s) - flat_s
+    #     scores = torch.matmul(torch.matmul(x1, self.cross_attention_l1),x.t())
+    #     # mask own cluster and do cross-cluster
+    #     scores = scores * reverse_s.t()
+    #     alpha = F.softmax(scores, dim=1)
+    #     # compute \alpha * x
+    #     x1 = torch.matmul(alpha,x) + x1 # x1 dim 128
+    #     'cross-layer ends'
+    #
+    #
+    #
+    #
+    #     x = self.conv1(x1,self.adj1)
+    #
+    #     x = F.relu(x)
+    #     x = F.dropout(x, training=self.training)[0] # shape [5,32], mapping adj is flat_s shape [15,5]
+    #
+    #     # import pdb;
+    #     # pdb.set_trace()
+    #
+    #     'map back to the previous layer x->x1'
+    #     back_l1=torch.matmul(torch.matmul(flat_s,x),self.reversed_l1) # map back to input l0, same dim
+    #     back_l1 = input_x + back_l1 # add original input l0, [14,128]
+    #     # map with another conv layer
+    #     back_l1_x = torch.matmul(flat_s.t(), back_l1)
+    #     back_l1_x = self.reversed_conv1(back_l1_x,self.adj1)
+    #     back_l1_x = F.relu(back_l1_x)
+    #     back_l1_x = F.dropout(back_l1_x,training=self.training)[0]
+    #     x = x + back_l1_x
+    #     'map back ends'
+    #
+    #     # second layer
+    #     portion2 = ceil(x.shape[0] / self.num_nodes2)
+    #     flat_s = torch.eye(self.num_nodes2)
+    #     flat_s = torch.repeat_interleave(flat_s, portion2, dim=0)[:x.shape[0], ].float().to(self.device)
+    #
+    #     x2 = torch.matmul(flat_s.t(), x)
+    #     self.adj2 = torch.matmul(torch.matmul(flat_s.t(), self.adj1), flat_s)
+    #
+    #
+    #
+    #
+    #     x = self.conv2(x2, self.adj2)
+    #
+    #     'return mean'
+    #     x = x.mean(dim=1)
+    #     x = F.relu(self.linear1(x))
+    #     return F.log_softmax(x, dim=1)
 
-        'hipool: add sent-token cross-attention (cross-layer) attention: 1 layer, the best setting so far'
-        newadj = edge_index[1].float()
-
-        portion1 = ceil(x.shape[0] / self.num_nodes1)
-        flat_s = torch.eye(self.num_nodes1)
-        flat_s = torch.repeat_interleave(flat_s, portion1, dim=0)[:x.shape[0], ].float().to(self.device)
 
 
-        # first layer
-        input_x = x
-        x1 = torch.matmul(flat_s.t(),x) # (5,128)
-        self.adj1 = torch.matmul(torch.matmul(flat_s.t(),newadj), flat_s)
-
-        'testing cross-layer attention'
-        # generate inverse adj for cross-layer attention
-        reverse_s = torch.ones_like(flat_s) - flat_s
-        scores = torch.matmul(torch.matmul(x1, self.cross_attention_l1),x.t())
-        # mask own cluster and do cross-cluster
-        scores = scores * reverse_s.t()
-        alpha = F.softmax(scores, dim=1)
-        # compute \alpha * x
-        x1 = torch.matmul(alpha,x) + x1 # x1 dim 128
-        'cross-layer ends'
-
-
-
-
-        x = self.conv1(x1,self.adj1)
-
-        x = F.relu(x)
-        x = F.dropout(x, training=self.training)[0] # shape [5,32], mapping adj is flat_s shape [15,5]
-
-        # import pdb;
-        # pdb.set_trace()
-
-        'map back to the previous layer x->x1'
-        back_l1=torch.matmul(torch.matmul(flat_s,x),self.reversed_l1) # map back to input l0, same dim
-        back_l1 = input_x + back_l1 # add original input l0, [14,128]
-        # map with another conv layer
-        back_l1_x = torch.matmul(flat_s.t(), back_l1)
-        back_l1_x = self.reversed_conv1(back_l1_x,self.adj1)
-        back_l1_x = F.relu(back_l1_x)
-        back_l1_x = F.dropout(back_l1_x,training=self.training)[0]
-        x = x + back_l1_x
-        'map back ends'
-
-        # second layer
-        portion2 = ceil(x.shape[0] / self.num_nodes2)
-        flat_s = torch.eye(self.num_nodes2)
-        flat_s = torch.repeat_interleave(flat_s, portion2, dim=0)[:x.shape[0], ].float().to(self.device)
-
-        x2 = torch.matmul(flat_s.t(), x)
-        self.adj2 = torch.matmul(torch.matmul(flat_s.t(), self.adj1), flat_s)
-
-
-
-
-        x = self.conv2(x2, self.adj2)
-
-        'return mean'
-        x = x.mean(dim=1)
-        x = F.relu(self.linear1(x))
-        return F.log_softmax(x, dim=1)
-
-
-
-    def forward(self, x, edge_index):
+    def forward_cross_with_self_2layer(self, x, edge_index):
 
         'forward_one_cross_with_self_attention: hipool: add sent-token cross-attention (cross-layer) attention: 1 layer'
         'for each higher layer, we add self attention'
@@ -547,5 +549,63 @@ class HiPool(torch.nn.Module):
         'return mean'
         x = x.mean(dim=1)
         x = F.relu(self.linear1(x))
+        return F.log_softmax(x, dim=1)
+
+    def forward(self, x, edge_index):
+        # forward_cross_best
+
+        'hipool: add sent-token cross-attention (cross-layer) attention: 2 layers'
+        newadj = edge_index[1].float()
+        portion1 = ceil(x.shape[0] / self.num_nodes1)
+        flat_s = torch.eye(self.num_nodes1)
+        flat_s = torch.repeat_interleave(flat_s, portion1, dim=0)[:x.shape[0], ].float().to(self.device)
+
+        # first layer
+        x1 = torch.matmul(flat_s.t(), x)  # (5,128)
+        self.adj1 = torch.matmul(torch.matmul(flat_s.t(), newadj), flat_s)
+
+        'testing cross-layer attention'
+        # generate inverse adj for cross-layer attention
+        reverse_s = torch.ones_like(flat_s) - flat_s
+        scores = torch.matmul(torch.matmul(x1, self.cross_attention_l1), x.t())
+        # mask own cluster and do cross-cluster
+        scores = scores * reverse_s.t()
+        alpha = F.softmax(scores, dim=1)
+        # compute \alpha * x
+        x1 = torch.matmul(alpha, x) + x1
+        'cross-layer ends'
+
+        x = self.conv1(x1, self.adj1)
+
+        x = F.relu(x)
+        x = F.dropout(x, training=self.training)[0]
+
+        # second layer
+        portion2 = ceil(x.shape[0] / self.num_nodes2)
+        flat_s = torch.eye(self.num_nodes2)
+        flat_s = torch.repeat_interleave(flat_s, portion2, dim=0)[:x.shape[0], ].float().to(self.device)
+
+        x2 = torch.matmul(flat_s.t(), x)
+        self.adj2 = torch.matmul(torch.matmul(flat_s.t(), self.adj1), flat_s)
+
+        'testing cross-layer attention for 2nd layer'
+        # generate inverse adj for cross-layer attention
+        reverse_s = torch.ones_like(flat_s) - flat_s
+        scores = torch.matmul(torch.matmul(x2, self.cross_attention_l2), x.t())
+        # mask own cluster and do cross-cluster
+        scores = scores * reverse_s.t()
+        alpha = F.softmax(scores, dim=1)
+        # compute \alpha * x
+        x2 = torch.matmul(alpha, x) + x2
+        'cross-layer for 2nd layer ends'
+
+        x = self.conv2(x2, self.adj2)
+
+        'return mean'
+        x = x.mean(dim=1)
+        x = F.relu(self.linear1(x))
+
+
+
         return F.log_softmax(x, dim=1)
 

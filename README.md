@@ -1,8 +1,9 @@
-# RoBERT Recurrence over BERT
-pyTorch implementation of Recurrence over BERT (RoBERT) based on this paper https://arxiv.org/abs/1910.10781
-and comparison with pyTorch implementation of other Hierarchical Methods (Mean Pooling and Max Pooling) and Truncation Methods (Head Only and Tail Only) presented in this paper https://arxiv.org/abs/1905.05583 
+# HiPool
 
-[original git link](https://github.com/helmy-elrais/RoBERT_Recurrence_over_BERT/blob/master/train.ipynb)
+pyTorch implementation of HiPool submission paper **HiPool: Hierarchical Pooling for Long Document Classification**.
+
+The code is based on this implementation:
+[git link](https://github.com/helmy-elrais/RoBERT_Recurrence_over_BERT/blob/master/train.ipynb)
 
 ## Install
 Tested on python 3.8.8.

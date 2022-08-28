@@ -326,4 +326,3 @@ dependencies:
     - yake==0.4.8
     - zc-lockfile==2.0
     - zipp==3.6.0
-prefix: /home/lily/zl379/anaconda2/envs/zivapy

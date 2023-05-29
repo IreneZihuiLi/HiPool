@@ -1,6 +1,6 @@
 # HiPool
 
-pyTorch implementation of HiPool submission paper **HiPool: Hierarchical Pooling for Long Document Classification**.
+This is the pyTorch implementation of **[HiPool: Hierarchical Pooling for Long Document Classification]([url](https://arxiv.org/abs/2305.03319))**, published in ACL 2023. 
 
 The code is based on this implementation:
 [git link](https://github.com/helmy-elrais/RoBERT_Recurrence_over_BERT/blob/master/train.ipynb)
@@ -26,3 +26,15 @@ default dataset: consumer_complaints
 `Graph_Models.py`: graph model classes.
 
 `Graph_Models_utils.py`: helper functions for graph model classes.
+
+## Cite this work
+```
+@inproceedings{li2023hipool,
+  title={HiPool: Modeling Long Documents Using Graph Neural Networks},
+  author={Li, Irene and Feng, Aosong and Radev, Dragomir and Ying, Rex},
+  booktitle={Proceedings of the Association for Computational Linguistics (ACL)},
+  year={2023},
+  url={https://arxiv.org/abs/2305.03319}
+}
+```
+
